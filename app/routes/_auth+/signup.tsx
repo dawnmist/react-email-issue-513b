@@ -1,5 +1,6 @@
 import { conform, useForm } from '@conform-to/react'
 import { getFieldsetConstraint, parse } from '@conform-to/zod'
+import { render } from '@react-email/components'
 import {
 	json,
 	redirect,
@@ -14,6 +15,7 @@ import {
 } from '@remix-run/react'
 import { z } from 'zod'
 import { GeneralErrorBoundary } from '~/components/error-boundary.tsx'
+import { WelcomeEmail } from '~/email/template/WelcomeEmail.tsx'
 import { prisma } from '~/utils/db.server.ts'
 import { sendEmail } from '~/utils/email.server.ts'
 import { Button, ErrorList, Field } from '~/utils/forms.tsx'
@@ -93,28 +95,16 @@ export async function action({ request }: DataFunctionArgs) {
 	// add the otp to the url we'll email the user.
 	onboardingUrl.searchParams.set(onboardingOTPQueryParam, otp)
 
+	const emailContent = WelcomeEmail({
+		otp,
+		onboardingUrl: onboardingUrl.toString(),
+	})
+
 	const response = await sendEmail({
 		to: email,
 		subject: `Welcome to Epic Notes!`,
-		text: `
-Welcome to Epic Notes!
-Here's your verification code: ${otp}
-Or you can open this URL: ${onboardingUrl}
-		`.trim(),
-		html: `
-		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-		<html>
-			<head>
-				<meta http-equiv="Content-Type" content="text/html charset=UTF-8" />
-			</head>
-			<body>
-				<h1>Welcome to Epic Notes!</h1>
-				<p>Here's your verification code: <strong>${otp}</strong></p>
-				<p>Or click the link to get started:</p>
-				<a href="${onboardingUrl}">${onboardingUrl}</a>
-			</body>
-		</html>
-		`,
+		text: render(emailContent, { plainText: true }),
+		html: render(emailContent, { plainText: false }),
 	})
 
 	if (response?.ok) {
